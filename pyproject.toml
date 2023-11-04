@@ -8,6 +8,9 @@ packages = [{include = "stably_discordant_server"}]
 
 [tool.poetry.dependencies]
 python = "^3.10"
+zmq = "^0.0.0"
+discord-py = "^2.3.2"
+tomli = "^2.0.1"
 
 
 [build-system]
