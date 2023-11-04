@@ -1,8 +1,8 @@
 import argparse
 
-from stabley_discordant_server import utils
-from stabley_discordant_server.server_bot import LoadBalancerBot
-from stabley_discordant_server.config import config
+from stably_discordant_server import utils
+from stably_discordant_server.server_bot import LoadBalancerBot
+from stably_discordant_server.config import config
 
 logger = utils.setup_logger()
 
@@ -13,5 +13,5 @@ if __name__ == "__main__":
     args = vars(parser.parse_args())
     logger.setLevel(args.pop("logging_level"))
 
-    bot = LoadBalancerBot()
+    bot = LoadBalancerBot(host_port='5556')
     bot.run(config["auth"]["discord_token"])

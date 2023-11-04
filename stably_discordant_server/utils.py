@@ -1,7 +1,7 @@
 import logging
 import warnings
 from logging.handlers import TimedRotatingFileHandler
-from stabley_discordant_server.config import config
+from stably_discordant_server.config import config
 
 
 def setup_logger(dir_path: str = f"{config['misc_settings']['log_dir']}/stable-discord.log") -> logging.Logger:

@@ -5,11 +5,13 @@ import zmq
 import discord
 from discord.ext import tasks
 import threading
+import base64
+import tempfile
 
-from stabley_discordant_server.config import config
-from stabley_discordant_server.parser import PromptParser
+from stably_discordant_server.config import config
+from stably_discordant_server.parser import PromptParser
 from typing import Any
-from stabley_discordant_server.units import WorkUnit
+from stably_discordant_server.units import WorkUnit
 
 logger = logging.getLogger(__name__)
 
@@ -149,20 +151,25 @@ class QueueHandler:
         self.ready_workers = []
 
         self.queue_context = zmq.Context()
-        self.sock = self.queue_context.socket(zmq.DEALER)
-        self.sock.connect(f'tcp://*:{host_port}')
+        self.sock = self.queue_context.socket(zmq.ROUTER)
+        self.sock.bind(f'tcp://*:{host_port}')
+
+        self.pending_work = dict()
 
     async def enqueue_work(self, work_unit):
         with self.work_queue_lock:
             self.work_queue.append(work_unit)
 
     async def dequeue_output(self):
-        pass
-        # return file_name
+        with self.output_queue_lock:
+            if self.output_queue:
+                return self.output_queue.pop(0)
 
     async def loop(self):
         poller = zmq.Poller()
-        poller.register(self.sock.smq.POLLIN)
+        poller.register(self.sock, zmq.POLLIN)
+
+        logger.info('Initializing queue handler loop.')
 
         while True:
             sock_resp = dict(poller.poll(timeout=0))
@@ -171,13 +178,41 @@ class QueueHandler:
             if self.sock in sock_resp and sock_resp[self.sock] == zmq.POLLIN:
                 worker_id, worker_json = self.sock.recv_multipart()
                 worker_response = json.loads(worker_json.decode('utf-8'))
+                logger.info('Found message on the zmq: ', worker_response)
 
                 if worker_response['type'] == 'READY':
-                    # logger.info('Worker %s reports ready.', worker_id.hex())
+                    hostname = worker_response['hostname']
+                    logger.info('Worker id %s hostname %s reports ready.', worker_id.hex(), hostname)
                     self.ready_workers.append(worker_id)
 
                 elif worker_response['type'] == 'OUTPUT':
-                    pass
+                    logger.info('Worker %s has returned work', worker_id.hex())
+                    image_data_base64 = worker_response['image_data']
+                    image_data = base64.b64decode(image_data_base64)
+
+                    with self.output_queue_lock:
+                        id_num = worker_response['id_num']
+                        if id_num not in self.pending_work:
+                            logger.info('Received work unit %s not marked as outstanding.', id_num)
+                        else:
+                            logger.info('Received work found as pending work item %s', id_num)
+                            pending_item = self.pending_work.pop(id_num)
+                            d = {'image_data': image_data, 'message': pending_item.discord_message}
+                            message = pending_item.discord_message
+                            args = pending_item.args
+                            hostname = worker_response['hostname']
+                            with tempfile.NamedTemporaryFile(suffix=".png") as temp_file:
+                                temp_file.write(image_data)
+                                logger.info('Sending output in discord message reply')
+                                content = (
+                                    f"Parsed args: {args} processed by hostname: {hostname}"
+                                )
+                                await message.reply(file=discord.File(temp_file.name), content=content)
+                                # TODO: Move this in progress to when the item is being added as pending work?
+                                # await message.remove_reaction(self.config["style"]["in_prog_emoji"],
+                                #                               self.user)  # type: ignore
+                                # await message.add_reaction(self.config["style"]["done_emoji"])
+
 
                 # TODO: Handle retry unanswered work
                 elif worker_response['type'] == 'GOODBYE':
@@ -190,23 +225,20 @@ class QueueHandler:
                 if self.work_queue and self.ready_workers:
                     work_unit = self.work_queue.pop(0)
                     worker_id = self.ready_workers.pop(0)
+                    logger.info('Sending work unit args %s id %s to worker id %s', work_unit.args, work_unit.id_num, worker_id.hex())
+                    logger.info('Sending args: %s', work_unit.args)
+                    payload = json.dumps(work_unit.args | {'id_num': work_unit.id_num}).encode('utf-8')
 
-                    self.sock.send_multipart([worker_id, json.dumps(work_unit).encode('utf-8')])
+                    self.sock.send_multipart([worker_id, payload])
+                    self.pending_work[work_unit.id_num] = work_unit
 
-            await asyncio.sleep(0.5)
+            await asyncio.sleep(1)
 
 
 class LoadBalancerBot(DiscordBotBase):
     def __init__(self, host_port: str = '5555'):
         super().__init__()
         self.queue_handler = QueueHandler(host_port=host_port)
-
-    @tasks.loop(seconds=1.0)
-    async def dequeue_output(self):
-        pass
-        # while dequeue:
-        #     save to file
-        #     send on discord
 
     async def on_ready(self) -> None:
         """An event-driven function that runs when the bot is first initialized."""
@@ -215,6 +247,9 @@ class LoadBalancerBot(DiscordBotBase):
         for channel in self.allowed_channels:
             logger.info("Announcing login in server:channel - '%s:%s'", channel.guild.name, channel)
             await channel.send("I'm here!")
+
+        await self.queue_handler.loop()
+        await self.send_output_loop()
 
     async def on_message(self, message: discord.Message) -> None:
         """An event-driven function that runs whenever the bot sees a message on a channel it is in.
@@ -242,20 +277,6 @@ class LoadBalancerBot(DiscordBotBase):
                 await self.help_response(message)
                 return
 
-            args = self.extract_message_args(message)
+            args = await self.extract_message_args(message)
             unit = WorkUnit(message, args)
             await self.queue_handler.enqueue_work(unit)
-
-    # async def handle_user_input(self, message: discord.Message) -> None:
-    #     """A function that handles passing a user message to the parser and then to the diffuser.
-    #
-    #     Args:
-    #         message (discord.Message): The user message object.
-    #     """
-    #
-    #     await message.add_reaction(self.config["style"]["in_prog_emoji"])
-    #     file_name = self.diffuser.make_image(**known_args)
-    #     logger.info("for prompt: %s, generated_image: %s", known_args, file_name)
-    #     await message.reply(file=discord.File(file_name), content=f"Parsed args: {known_args}")
-    #     await message.remove_reaction(self.config["style"]["in_prog_emoji"], self.user)  # type: ignore
-    #     await message.add_reaction(self.config["style"]["done_emoji"])

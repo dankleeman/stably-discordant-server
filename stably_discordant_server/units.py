@@ -1,9 +1,13 @@
 from dataclasses import dataclass
-from typing import Any, Coroutine
+from typing import Any
 import discord
+
+import secrets
 
 
 @dataclass
 class WorkUnit:
     discord_message: discord.Message
-    args: Coroutine[Any, Any, dict[str, Any]]
+    args: dict[str, Any]
+    id_num = secrets.token_hex(16)
+
