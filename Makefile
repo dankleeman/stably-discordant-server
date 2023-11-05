@@ -18,9 +18,15 @@ lint.ruff.check:
 
 lint: lint.ruff
 
+type.mypy:
+	poetry run mypy ${SOURCE_OBJECTS}
+
+type: type.mypy
+
 check:
 	format.ruff.check
 	lint.ruff.check
+	type.mypy
 
 setup:
 	python3 -m pip install poetry

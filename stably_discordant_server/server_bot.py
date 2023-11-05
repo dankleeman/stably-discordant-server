@@ -160,26 +160,26 @@ class DiscordBotBase(discord.Client):
 
 class QueueHandler:
     def __init__(self, host_port: str):
-        self.work_queue = []
+        self.work_queue: list[WorkUnit] = []
         self.work_queue_lock = threading.Lock()
-        self.output_queue = []
-        self.output_queue_lock = threading.Lock()
-        self.ready_workers = []
+        # self.output_queue = []
+        # self.output_queue_lock = threading.Lock()
+        self.ready_workers: list[bytes] = []
 
         self.queue_context = zmq.Context()
         self.sock = self.queue_context.socket(zmq.ROUTER)
         self.sock.bind(f"tcp://*:{host_port}")
 
-        self.pending_work = dict()
+        self.pending_work: dict[int, WorkUnit] = dict()
 
     async def enqueue_work(self, work_unit):
         with self.work_queue_lock:
             self.work_queue.append(work_unit)
 
-    async def dequeue_output(self):
-        with self.output_queue_lock:
-            if self.output_queue:
-                return self.output_queue.pop(0)
+    # async def dequeue_output(self):
+    #     with self.output_queue_lock:
+    #         if self.output_queue:
+    #             return self.output_queue.pop(0)
 
     async def loop(self):
         poller = zmq.Poller()
@@ -208,27 +208,26 @@ class QueueHandler:
                     image_data_base64 = worker_response["image_data"]
                     image_data = base64.b64decode(image_data_base64)
 
-                    with self.output_queue_lock:
-                        id_num = worker_response["id_num"]
-                        if id_num not in self.pending_work:
-                            logger.info("Received work unit %s not marked as outstanding.", id_num)
-                        else:
-                            logger.info("Received work found as pending work item %s", id_num)
-                            pending_item = self.pending_work.pop(id_num)
-                            message = pending_item.discord_message
-                            args = pending_item.args
-                            hostname = worker_response["hostname"]
-                            with tempfile.NamedTemporaryFile(suffix=".png") as temp_file:
-                                temp_file.write(image_data)
-                                logger.info("Sending output in discord message reply")
-                                content = f"Parsed args: {args} processed by hostname: {hostname}"
-                                await message.reply(
-                                    file=discord.File(temp_file.name), content=content
-                                )
-                                # TODO: Move this in progress to when the item is being added as pending work?
-                                # await message.remove_reaction(self.config["style"]["in_prog_emoji"],
-                                #                               self.user)  # type: ignore
-                                # await message.add_reaction(self.config["style"]["done_emoji"])
+                    # with self.output_queue_lock:
+                    id_num = worker_response["id_num"]
+                    if id_num not in self.pending_work:
+                        logger.info("Received work unit %s not marked as outstanding.", id_num)
+                    else:
+                        logger.info("Received work found as pending work item %s", id_num)
+                        pending_item = self.pending_work.pop(id_num)
+                        message = pending_item.discord_message
+                        args = pending_item.args
+                        hostname = worker_response["hostname"]
+                        with tempfile.NamedTemporaryFile(suffix=".png") as temp_file:
+                            temp_file.write(image_data)
+                            logger.info("Sending output in discord message reply")
+                            content = f"Parsed args: {args} processed by hostname: {hostname}"
+                            await message.reply(file=discord.File(temp_file.name), content=content)
+                            # TODO: Move this in progress to when the item is being added as pending work?
+                            # TODO: Rework as part of reviving output queue pattern
+                            # await message.remove_reaction(self.config["style"]["in_prog_emoji"],
+                            #                               self.user)  # type: ignore
+                            # await message.add_reaction(self.config["style"]["done_emoji"])
 
                 # TODO: Handle retry unanswered work
                 elif worker_response["type"] == "GOODBYE":
@@ -271,8 +270,9 @@ class LoadBalancerBot(DiscordBotBase):
             logger.info("Announcing login in server:channel - '%s:%s'", channel.guild.name, channel)
             await channel.send("I'm here!")
 
+        # TODO: Revisit discord-py.ext.tasks pattern for this.
+        # The fact that this function never properly terminates seems like an abuse.
         await self.queue_handler.loop()
-        await self.send_output_loop()
 
     async def on_message(self, message: discord.Message) -> None:
         """An event-driven function that runs whenever the bot sees a message on a channel it is in.

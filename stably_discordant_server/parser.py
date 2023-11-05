@@ -41,7 +41,7 @@ class PromptParser:
         )
 
     @property
-    def help_text(self) -> str:
+    def help_text(self) -> Any:
         """Generate the help text for the argument parser.
 
         Returns:

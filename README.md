@@ -15,6 +15,8 @@ The server host port can be set with the command line parameter `--host-port` on
 ## Installation
 Stably Discordant Server uses poetry to manage dependencies and installation.
 
+**NOTE: Stably Discordant Server currently only supports python 3.10. While it is likely that some minor poetry work could easily extend this to other python versions, absolutely no testing or work has yet been performed to this end.**
+
 ### Linux / MacOS
 A user may run the following steps manually or if they have `make` installed they may run `make setup`.
 
