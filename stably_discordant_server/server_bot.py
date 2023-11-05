@@ -47,16 +47,22 @@ class DiscordBotBase(discord.Client):
         3. Otherwise, allowed_channels is set to be a set of all seen channels.
         """
         channels_dict = {
-            f"{guild.name}:{channel.name}": channel for guild in self.guilds for channel in guild.text_channels
+            f"{guild.name}:{channel.name}": channel
+            for guild in self.guilds
+            for channel in guild.text_channels
         }
 
         if self.config["settings"]["listen_channels"]:
             self.allowed_channels = {
-                channels_dict[key] for key in channels_dict if key in self.config["settings"]["listen_channels"]
+                channels_dict[key]
+                for key in channels_dict
+                if key in self.config["settings"]["listen_channels"]
             }
         elif self.config["settings"]["ignore_channels"]:
             self.allowed_channels = {
-                channels_dict[key] for key in channels_dict if key not in self.config["settings"]["ignore_channels"]
+                channels_dict[key]
+                for key in channels_dict
+                if key not in self.config["settings"]["ignore_channels"]
             }
         else:
             self.allowed_channels = set(channels_dict.values())
@@ -92,15 +98,23 @@ class DiscordBotBase(discord.Client):
             known_args, unknown_args = self.prompt_parser.parse_input(cleaned_message_text)
         except ValueError as e:
             if e.args[0] == "No closing quotation":
-                await message.reply("Prompt has open quotation with no closing quotation. Please fix and try again.")
+                await message.reply(
+                    "Prompt has open quotation with no closing quotation. Please fix and try again."
+                )
             else:
-                await message.reply("Prompt has unspecified syntax error. Please fix and try again.")
+                await message.reply(
+                    "Prompt has unspecified syntax error. Please fix and try again."
+                )
             return {}
         except SystemExit as e:
             if e.args[0] == 2:
-                await message.reply("Prompt has invalid integer input on integer argument. Please fix and try again.")
+                await message.reply(
+                    "Prompt has invalid integer input on integer argument. Please fix and try again."
+                )
             else:
-                await message.reply("Prompt has unspecified syntax error. Please fix and try again.")
+                await message.reply(
+                    "Prompt has unspecified syntax error. Please fix and try again."
+                )
             return {}
 
         if unknown_args:
@@ -131,7 +145,10 @@ class DiscordBotBase(discord.Client):
             return f"{user.name}#{user.discriminator}" in self.allowed_users and user != self.user
 
         if self.disallowed_users:
-            return f"{user.name}#{user.discriminator}" not in self.disallowed_users and user != self.user
+            return (
+                f"{user.name}#{user.discriminator}" not in self.disallowed_users
+                and user != self.user
+            )
 
         return user != self.user
 
@@ -152,7 +169,7 @@ class QueueHandler:
 
         self.queue_context = zmq.Context()
         self.sock = self.queue_context.socket(zmq.ROUTER)
-        self.sock.bind(f'tcp://*:{host_port}')
+        self.sock.bind(f"tcp://*:{host_port}")
 
         self.pending_work = dict()
 
@@ -169,7 +186,7 @@ class QueueHandler:
         poller = zmq.Poller()
         poller.register(self.sock, zmq.POLLIN)
 
-        logger.info('Initializing queue handler loop.')
+        logger.info("Initializing queue handler loop.")
 
         while True:
             sock_resp = dict(poller.poll(timeout=0))
@@ -177,57 +194,65 @@ class QueueHandler:
             # Process messages on the queue
             if self.sock in sock_resp and sock_resp[self.sock] == zmq.POLLIN:
                 worker_id, worker_json = self.sock.recv_multipart()
-                worker_response = json.loads(worker_json.decode('utf-8'))
-                logger.info('Found message on the zmq: ', worker_response)
+                worker_response = json.loads(worker_json.decode("utf-8"))
+                logger.info("Found message on the zmq: ", worker_response)
 
-                if worker_response['type'] == 'READY':
-                    hostname = worker_response['hostname']
-                    logger.info('Worker id %s hostname %s reports ready.', worker_id.hex(), hostname)
+                if worker_response["type"] == "READY":
+                    hostname = worker_response["hostname"]
+                    logger.info(
+                        "Worker id %s hostname %s reports ready.", worker_id.hex(), hostname
+                    )
                     self.ready_workers.append(worker_id)
 
-                elif worker_response['type'] == 'OUTPUT':
-                    logger.info('Worker %s has returned work', worker_id.hex())
-                    image_data_base64 = worker_response['image_data']
+                elif worker_response["type"] == "OUTPUT":
+                    logger.info("Worker %s has returned work", worker_id.hex())
+                    image_data_base64 = worker_response["image_data"]
                     image_data = base64.b64decode(image_data_base64)
 
                     with self.output_queue_lock:
-                        id_num = worker_response['id_num']
+                        id_num = worker_response["id_num"]
                         if id_num not in self.pending_work:
-                            logger.info('Received work unit %s not marked as outstanding.', id_num)
+                            logger.info("Received work unit %s not marked as outstanding.", id_num)
                         else:
-                            logger.info('Received work found as pending work item %s', id_num)
+                            logger.info("Received work found as pending work item %s", id_num)
                             pending_item = self.pending_work.pop(id_num)
-                            d = {'image_data': image_data, 'message': pending_item.discord_message}
+                            d = {"image_data": image_data, "message": pending_item.discord_message}
                             message = pending_item.discord_message
                             args = pending_item.args
-                            hostname = worker_response['hostname']
+                            hostname = worker_response["hostname"]
                             with tempfile.NamedTemporaryFile(suffix=".png") as temp_file:
                                 temp_file.write(image_data)
-                                logger.info('Sending output in discord message reply')
-                                content = (
-                                    f"Parsed args: {args} processed by hostname: {hostname}"
+                                logger.info("Sending output in discord message reply")
+                                content = f"Parsed args: {args} processed by hostname: {hostname}"
+                                await message.reply(
+                                    file=discord.File(temp_file.name), content=content
                                 )
-                                await message.reply(file=discord.File(temp_file.name), content=content)
                                 # TODO: Move this in progress to when the item is being added as pending work?
                                 # await message.remove_reaction(self.config["style"]["in_prog_emoji"],
                                 #                               self.user)  # type: ignore
                                 # await message.add_reaction(self.config["style"]["done_emoji"])
 
-
                 # TODO: Handle retry unanswered work
-                elif worker_response['type'] == 'GOODBYE':
+                elif worker_response["type"] == "GOODBYE":
                     pass
                 else:
-                    raise ValueError('Unhandled message: ', worker_response)
+                    raise ValueError("Unhandled message: ", worker_response)
 
             # Send any pending work
             with self.work_queue_lock:
                 if self.work_queue and self.ready_workers:
                     work_unit = self.work_queue.pop(0)
                     worker_id = self.ready_workers.pop(0)
-                    logger.info('Sending work unit args %s id %s to worker id %s', work_unit.args, work_unit.id_num, worker_id.hex())
-                    logger.info('Sending args: %s', work_unit.args)
-                    payload = json.dumps(work_unit.args | {'id_num': work_unit.id_num}).encode('utf-8')
+                    logger.info(
+                        "Sending work unit args %s id %s to worker id %s",
+                        work_unit.args,
+                        work_unit.id_num,
+                        worker_id.hex(),
+                    )
+                    logger.info("Sending args: %s", work_unit.args)
+                    payload = json.dumps(work_unit.args | {"id_num": work_unit.id_num}).encode(
+                        "utf-8"
+                    )
 
                     self.sock.send_multipart([worker_id, payload])
                     self.pending_work[work_unit.id_num] = work_unit
@@ -236,7 +261,7 @@ class QueueHandler:
 
 
 class LoadBalancerBot(DiscordBotBase):
-    def __init__(self, host_port: str = '5555'):
+    def __init__(self, host_port: str = "5555"):
         super().__init__()
         self.queue_handler = QueueHandler(host_port=host_port)
 
@@ -266,9 +291,9 @@ class LoadBalancerBot(DiscordBotBase):
         )
 
         if (
-                message.content.startswith(self.config["settings"]["wake_word"])
-                and message.channel in self.allowed_channels
-                and self.user_is_allowed(message.author)  # type: ignore
+            message.content.startswith(self.config["settings"]["wake_word"])
+            and message.channel in self.allowed_channels
+            and self.user_is_allowed(message.author)  # type: ignore
         ):
             logger.debug("Wake-word detected in message on allowed channel.")
             await message.add_reaction(self.config["style"]["ack_emoji"])

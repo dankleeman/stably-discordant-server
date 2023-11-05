@@ -1,5 +1,5 @@
-PROJECT=stable_discord
-SOURCE_OBJECTS=app stable_discord
+PROJECT=stably_discordant_server
+SOURCE_OBJECTS=app stably_discordant_server
 
 
 format.ruff:
