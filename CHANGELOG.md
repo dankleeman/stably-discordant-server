@@ -12,3 +12,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 	- Added a LICENSE
 	- Added a Makefile
 	- Added ruff for formatting and linting
+    - Added mypy for type checking
+    - Added basic CI pipeline
