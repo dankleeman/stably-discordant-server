@@ -3,7 +3,6 @@ import asyncio
 import logging
 import zmq
 import discord
-from discord.ext import tasks
 import threading
 import base64
 import tempfile
@@ -216,7 +215,6 @@ class QueueHandler:
                         else:
                             logger.info("Received work found as pending work item %s", id_num)
                             pending_item = self.pending_work.pop(id_num)
-                            d = {"image_data": image_data, "message": pending_item.discord_message}
                             message = pending_item.discord_message
                             args = pending_item.args
                             hostname = worker_response["hostname"]
