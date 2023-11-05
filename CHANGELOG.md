@@ -10,3 +10,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 	- First working draft that handles a flexible pool of workers and returns images on Discord
 	- A full README.md with installation instructions
 	- Added a LICENSE
+	- Added a Makefile
+	- Added ruff for formatting and linting

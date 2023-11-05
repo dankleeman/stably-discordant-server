@@ -22,7 +22,7 @@ A user may run the following steps manually or if they have `make` installed the
 	poetry install
 
 ### Windows
-A user may run the following steps manually or if they have `make` installed they may run `make setup.windows`.
+A user may run the following steps manually or if they have `make` installed they may run `make setup`.
 
 	python3 -m pip install poetry
 	poetry install
