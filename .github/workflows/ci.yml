@@ -1,0 +1,38 @@
+name: CI
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+  workflow_dispatch:
+
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Check Config Discord Token
+        run: |
+          if grep 'discord_token="XXX"' config.toml
+          then echo "Discord Token is OK."
+          else exit 1; fi
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Install Poetry
+        uses: snok/install-poetry@v1
+
+      - name: Install package
+        run: poetry install
+
+      - name: Format Check
+        run: make format.check
+
+      - name: Lint Check
+        run: make lint.check
+
+      - name: Type Check
+        run: make type

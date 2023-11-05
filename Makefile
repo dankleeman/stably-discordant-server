@@ -1,32 +1,22 @@
 PROJECT=stably_discordant_server
 SOURCE_OBJECTS=app stably_discordant_server
 
-
-format.ruff:
-	poetry run ruff format ${SOURCE_OBJECTS}
-
-format.ruff.check:
+format.check:
 	poetry run ruff format --check ${SOURCE_OBJECTS}
 
-format: format.ruff
+format:
+	poetry run ruff format ${SOURCE_OBJECTS}
 
-lint.ruff:
-	poetry run ruff check ${SOURCE_OBJECTS} --fix
-
-lint.ruff.check:
+lint.check:
 	poetry run ruff check ${SOURCE_OBJECTS}
 
-lint: lint.ruff
+lint:
+	poetry run ruff check ${SOURCE_OBJECTS} --fix
 
-type.mypy:
+type:
 	poetry run mypy ${SOURCE_OBJECTS}
 
-type: type.mypy
-
-check:
-	format.ruff.check
-	lint.ruff.check
-	type.mypy
+check: format.check lint.check type
 
 setup:
 	python3 -m pip install poetry
