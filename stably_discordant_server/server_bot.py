@@ -1,15 +1,16 @@
-import json
 import asyncio
-import logging
-import zmq
-import discord
-import threading
 import base64
+import json
+import logging
 import tempfile
+import threading
+from typing import Any
+
+import discord
+import zmq
 
 from stably_discordant_server.config import config
 from stably_discordant_server.parser import PromptParser
-from typing import Any
 from stably_discordant_server.units import WorkUnit
 
 logger = logging.getLogger(__name__)

@@ -1,6 +1,7 @@
 import logging
 import warnings
 from logging.handlers import TimedRotatingFileHandler
+
 from stably_discordant_server.config import config
 
 

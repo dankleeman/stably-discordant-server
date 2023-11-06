@@ -1,8 +1,8 @@
 import argparse
 
 from stably_discordant_server import utils
-from stably_discordant_server.server_bot import LoadBalancerBot
 from stably_discordant_server.config import config
+from stably_discordant_server.server_bot import LoadBalancerBot
 
 logger = utils.setup_logger()
 
