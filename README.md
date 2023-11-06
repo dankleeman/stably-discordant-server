@@ -114,8 +114,6 @@ README - https://www.makeareadme.com/
 
 Semantic Versioning - https://semver.org/
 
-Conventional Commits - https://www.conventionalcommits.org/en/v1.0.0/
-
 ### Other References
 This program uses emojis that can be referenced here: https://unicode.org/emoji/charts/full-emoji-list.html
 

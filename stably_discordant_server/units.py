@@ -1,8 +1,8 @@
+import secrets
 from dataclasses import dataclass
 from typing import Any
-import discord
 
-import secrets
+import discord
 
 
 @dataclass
